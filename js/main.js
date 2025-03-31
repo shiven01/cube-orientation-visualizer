@@ -1,153 +1,233 @@
-// Global variables for Three.js components
-let scene, camera, renderer;
-let cube;
+// Main application code
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if quaternion data is available
+    if (!quaternionData || quaternionData.length === 0) {
+        console.error('No quaternion data available');
+        return;
+    }
 
-// Initialize the Three.js environment
-function init() {
-    // Create a scene - the container for all 3D objects, lights, and cameras
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
-    
-    // Create a camera - defines what we'll see in the renderer
-    // Parameters: field of view (degrees), aspect ratio, near clipping plane, far clipping plane
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5; // Position the camera 5 units back from the origin
-    
-    // Create a WebGL renderer - renders the scene with the camera view
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    // Set the size of the renderer to fill the container
-    renderer.setSize(
-        document.getElementById('canvas-container').clientWidth,
-        window.innerHeight
-    );
-    
-    // Add the renderer's canvas element to our page
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-    
-    // Create cube geometry and material
-    const geometry = new THREE.BoxGeometry(2, 2, 2);
-    
-    // Create materials for each face of the cube with different colors
-    const materials = [
-        new THREE.MeshBasicMaterial({ color: 0xff0000 }), // Red (right)
-        new THREE.MeshBasicMaterial({ color: 0x00ff00 }), // Green (left)
-        new THREE.MeshBasicMaterial({ color: 0x0000ff }), // Blue (top)
-        new THREE.MeshBasicMaterial({ color: 0xffff00 }), // Yellow (bottom)
-        new THREE.MeshBasicMaterial({ color: 0xff00ff }), // Magenta (front)
-        new THREE.MeshBasicMaterial({ color: 0x00ffff })  // Cyan (back)
-    ];
-    
-    // Create the cube mesh by combining geometry and materials
-    cube = new THREE.Mesh(geometry, materials);
-    
-    // Add the cube to the scene
-    scene.add(cube);
-    
-    // Add subtle ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-    
-    // Add directional light
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
-    
-    // Add window resize handler
-    window.addEventListener('resize', onWindowResize, false);
-    
-    // Set up the UI controls
-    setupControls();
-    
-    // Start the animation loop
-    animate();
-}
+    // Initialize the visualization
+    const app = new QuaternionVisualizer();
+    app.init();
+    app.animate();
+});
 
-// Update renderer and camera when window is resized
-function onWindowResize() {
-    camera.aspect = document.getElementById('canvas-container').clientWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(
-        document.getElementById('canvas-container').clientWidth,
-        window.innerHeight
-    );
-}
-
-// Animation loop - continuously renders the scene
-function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-}
-
-// Set up quaternion control UI
-function setupControls() {
-    // Get UI elements
-    const qxSlider = document.getElementById('qx');
-    const qySlider = document.getElementById('qy');
-    const qzSlider = document.getElementById('qz');
-    const qwSlider = document.getElementById('qw');
-    
-    const qxValue = document.getElementById('qx-value');
-    const qyValue = document.getElementById('qy-value');
-    const qzValue = document.getElementById('qz-value');
-    const qwValue = document.getElementById('qw-value');
-    
-    const resetButton = document.getElementById('reset');
-    
-    // Function to update cube's quaternion from slider values
-    function updateQuaternion() {
-        // Get values from sliders
-        const x = parseFloat(qxSlider.value);
-        const y = parseFloat(qySlider.value);
-        const z = parseFloat(qzSlider.value);
-        const w = parseFloat(qwSlider.value);
+class QuaternionVisualizer {
+    constructor() {
+        // Scene elements
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.cube = null;
         
-        // Update display values
-        qxValue.textContent = x.toFixed(2);
-        qyValue.textContent = y.toFixed(2);
-        qzValue.textContent = z.toFixed(2);
-        qwValue.textContent = w.toFixed(2);
+        // Animation control
+        this.isPlaying = false;
+        this.startTime = 0;
+        this.currentIndex = 0;
+        this.playbackSpeed = 1.0;
         
-        // Create a new quaternion
-        const quaternion = new THREE.Quaternion(x, y, z, w);
-        
-        // Normalize the quaternion (very important!)
-        // This ensures it represents a valid rotation
-        quaternion.normalize();
-        
-        // Apply the quaternion to the cube
-        cube.quaternion.copy(quaternion);
-        
-        // Update slider values to match the normalized quaternion
-        qxSlider.value = quaternion.x;
-        qySlider.value = quaternion.y;
-        qzSlider.value = quaternion.z;
-        qwSlider.value = quaternion.w;
-        
-        // Update display values with normalized values
-        qxValue.textContent = quaternion.x.toFixed(2);
-        qyValue.textContent = quaternion.y.toFixed(2);
-        qzValue.textContent = quaternion.z.toFixed(2);
-        qwValue.textContent = quaternion.w.toFixed(2);
+        // DOM elements
+        this.playPauseBtn = document.getElementById('play-pause');
+        this.resetBtn = document.getElementById('reset');
+        this.speedSlider = document.getElementById('speed');
+        this.speedValue = document.getElementById('speed-value');
+        this.timestampElement = document.getElementById('timestamp');
+        this.quatWElement = document.getElementById('quat-w');
+        this.quatXElement = document.getElementById('quat-x');
+        this.quatYElement = document.getElementById('quat-y');
+        this.quatZElement = document.getElementById('quat-z');
     }
     
-    // Add event listeners to sliders
-    qxSlider.addEventListener('input', updateQuaternion);
-    qySlider.addEventListener('input', updateQuaternion);
-    qzSlider.addEventListener('input', updateQuaternion);
-    qwSlider.addEventListener('input', updateQuaternion);
+    init() {
+        this.initScene();
+        this.createCube();
+        this.setupEventListeners();
+        
+        // Set initial state
+        this.resetAnimation();
+        this.updateQuaternionDisplay();
+    }
     
-    // Reset button functionality
-    resetButton.addEventListener('click', function() {
-        qxSlider.value = 0;
-        qySlider.value = 0;
-        qzSlider.value = 0;
-        qwSlider.value = 1;
-        updateQuaternion();
-    });
+    initScene() {
+        // Create scene
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x222222);
+        
+        // Create camera
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        this.camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
+        this.camera.position.z = 5;
+        
+        // Create renderer
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // Add renderer to the page
+        document.getElementById('scene-container').appendChild(this.renderer.domElement);
+        
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        this.scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        this.scene.add(directionalLight);
+        
+        // Add coordinate axes for reference
+        const axesHelper = new THREE.AxesHelper(3);
+        this.scene.add(axesHelper);
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    }
     
-    // Initialize with default quaternion values
-    updateQuaternion();
+    createCube() {
+        // Create cube geometry
+        const geometry = new THREE.BoxGeometry(2, 2, 2);
+        
+        // Create materials for each face with different colors
+        const materials = [
+            new THREE.MeshStandardMaterial({ color: 0xff0000 }), // Right - Red
+            new THREE.MeshStandardMaterial({ color: 0x00ff00 }), // Left - Green
+            new THREE.MeshStandardMaterial({ color: 0x0000ff }), // Top - Blue
+            new THREE.MeshStandardMaterial({ color: 0xffff00 }), // Bottom - Yellow
+            new THREE.MeshStandardMaterial({ color: 0xff00ff }), // Front - Magenta
+            new THREE.MeshStandardMaterial({ color: 0x00ffff })  // Back - Cyan
+        ];
+        
+        // Create cube with geometry and materials
+        this.cube = new THREE.Mesh(geometry, materials);
+        
+        // Add arrows to indicate orientation
+        const arrowX = new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(0, 0, 0),
+            1.5,
+            0xff0000
+        );
+        const arrowY = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 1, 0),
+            new THREE.Vector3(0, 0, 0),
+            1.5,
+            0x00ff00
+        );
+        const arrowZ = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, 0),
+            1.5,
+            0x0000ff
+        );
+        
+        this.cube.add(arrowX);
+        this.cube.add(arrowY);
+        this.cube.add(arrowZ);
+        
+        // Add cube to scene
+        this.scene.add(this.cube);
+    }
+    
+    setupEventListeners() {
+        // Play/Pause button
+        this.playPauseBtn.addEventListener('click', () => {
+            this.togglePlayPause();
+        });
+        
+        // Reset button
+        this.resetBtn.addEventListener('click', () => {
+            this.resetAnimation();
+        });
+        
+        // Speed slider
+        this.speedSlider.addEventListener('input', () => {
+            this.playbackSpeed = parseFloat(this.speedSlider.value);
+            this.speedValue.textContent = `${this.playbackSpeed.toFixed(1)}x`;
+        });
+    }
+    
+    togglePlayPause() {
+        this.isPlaying = !this.isPlaying;
+        this.playPauseBtn.textContent = this.isPlaying ? 'Pause' : 'Play';
+        
+        if (this.isPlaying && this.currentIndex >= quaternionData.length - 1) {
+            // If we're at the end, start over
+            this.currentIndex = 0;
+        }
+        
+        this.startTime = performance.now();
+    }
+    
+    resetAnimation() {
+        this.isPlaying = false;
+        this.playPauseBtn.textContent = 'Play';
+        this.currentIndex = 0;
+        this.updateCubeOrientation();
+    }
+    
+    updateCubeOrientation() {
+        if (this.currentIndex < 0 || this.currentIndex >= quaternionData.length) {
+            return;
+        }
+        
+        // Get current quaternion
+        const { quaternion } = quaternionData[this.currentIndex];
+        
+        // IMPORTANT: THREE.js quaternion is (x,y,z,w) but our data is (w,x,y,z)
+        // We need to reorder the components correctly
+        this.cube.quaternion.set(
+            quaternion.x,
+            quaternion.y,
+            quaternion.z,
+            quaternion.w
+        );
+        
+        // Update the quaternion display
+        this.updateQuaternionDisplay();
+    }
+    
+    updateQuaternionDisplay() {
+        if (this.currentIndex < 0 || this.currentIndex >= quaternionData.length) {
+            return;
+        }
+        
+        const data = quaternionData[this.currentIndex];
+        
+        // Update text display
+        this.timestampElement.textContent = data.timestamp;
+        this.quatWElement.textContent = data.quaternion.w.toFixed(4);
+        this.quatXElement.textContent = data.quaternion.x.toFixed(4);
+        this.quatYElement.textContent = data.quaternion.y.toFixed(4);
+        this.quatZElement.textContent = data.quaternion.z.toFixed(4);
+    }
+    
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        
+        if (this.isPlaying) {
+            // Calculate elapsed time since animation started
+            const currentTime = performance.now();
+            const elapsedTime = (currentTime - this.startTime) * this.playbackSpeed;
+            
+            // Use elapsed time to determine current frame
+            // Assuming each frame is separated by 16.67ms (60fps)
+            const targetIndex = Math.floor(elapsedTime / 16.67) + this.currentIndex;
+            
+            if (targetIndex < quaternionData.length) {
+                this.currentIndex = targetIndex;
+                this.updateCubeOrientation();
+            } else {
+                // Reached the end of data
+                this.currentIndex = quaternionData.length - 1;
+                this.isPlaying = false;
+                this.playPauseBtn.textContent = 'Play';
+            }
+        }
+        
+        // Render the scene
+        this.renderer.render(this.scene, this.camera);
+    }
 }
-
-// Start the application when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', init);

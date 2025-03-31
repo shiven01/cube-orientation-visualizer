@@ -3,42 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Quaternion Cube</title>
+    <title>Quaternion Sensor Data Visualization</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="container">
-        <div id="canvas-container"></div>
-        
+    <div id="info">
+        <h1>Quaternion Data Visualization</h1>
         <div id="controls">
-            <h2>Quaternion Controls</h2>
-            <div class="control-group">
-                <label for="qx">X: <span id="qx-value">0</span></label>
-                <input type="range" id="qx" min="-1" max="1" step="0.01" value="0">
-            </div>
-            <div class="control-group">
-                <label for="qy">Y: <span id="qy-value">0</span></label>
-                <input type="range" id="qy" min="-1" max="1" step="0.01" value="0">
-            </div>
-            <div class="control-group">
-                <label for="qz">Z: <span id="qz-value">0</span></label>
-                <input type="range" id="qz" min="-1" max="1" step="0.01" value="0">
-            </div>
-            <div class="control-group">
-                <label for="qw">W: <span id="qw-value">1</span></label>
-                <input type="range" id="qw" min="-1" max="1" step="0.01" value="1">
-            </div>
-            <button id="reset">Reset Quaternion</button>
-            <div class="info-box">
-                <p>A quaternion represents rotation in 3D space and has 4 components: x, y, z, and w.</p>
-                <p>The x, y, z components represent the axis of rotation, while w relates to the angle.</p>
-            </div>
+            <button id="play-pause">Play</button>
+            <button id="reset">Reset</button>
+            <span>Playback Speed: </span>
+            <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1">
+            <span id="speed-value">1x</span>
+        </div>
+        <div id="quaternion-display">
+            <p>Timestamp: <span id="timestamp">-</span></p>
+            <p>Quaternion: w: <span id="quat-w">-</span>, x: <span id="quat-x">-</span>, y: <span id="quat-y">-</span>, z: <span id="quat-z">-</span></p>
         </div>
     </div>
-
+    <div id="scene-container"></div>
+    
     <!-- Import Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Our main JavaScript file -->
+    
+    <!-- Import our quaternion data -->
+    <script src="js/quaternion-data.js"></script>
+    
+    <!-- Import our application code -->
     <script src="js/main.js"></script>
 </body>
 </html>
